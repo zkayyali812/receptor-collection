@@ -20,7 +20,16 @@
     XDG_RUNTIME_DIR: "/run/user/{{ receptor_user_register.uid }}"
   vars:
     receptor_uid_directory: "/run/user/{{ receptor_user_register.uid }}"
+    receptor_image_with_digest: "{{ receptor_image_registry }}/{{ receptor_image_name }}@{{ receptor_image_sha }}"
   block:
+    - name: Create containers.conf file
+      ansible.builtin.template:
+        src: templates/containers.conf.j2
+        dest: ~/.config/containers/containers.conf
+        mode: '0750'
+        owner: "{{ receptor_user }}"
+        group: "{{ receptor_group }}"
+
     - name: Enable podman socket
       ansible.builtin.systemd:
         name: podman.socket
@@ -28,17 +37,42 @@
         enabled: true
         scope: user
 
+    - name: Login to registry if authentication is provided
+      when: (receptor_image_registry_username is defined and receptor_image_registry_token is defined) or receptor_image_authfile_path is defined
+      block:
+        - name: Login to registry with username and token
+          when: receptor_image_registry_username is defined and receptor_image_registry_token is defined
+          containers.podman.podman_login:
+            username: "{{ receptor_image_registry_username }}"
+            password: "{{ receptor_image_registry_token }}"
+            registry: "{{ receptor_image_registry }}"
+
+        - name: Copy authfile with owner and permissions
+          when: receptor_image_authfile_path is defined
+          ansible.builtin.copy:
+            src: "{{ receptor_image_authfile_path }}"
+            dest: ~/.config/containers/auth.json
+            owner: "{{ receptor_user }}"
+            group: "{{ receptor_group }}"
+            mode: '0644'
+
+        - name: Login to registry with authfile
+          when: receptor_image_authfile_path is defined
+          containers.podman.podman_login:
+            authfile: ~/.config/containers/auth.json
+            registry: "{{ receptor_image_registry }}"
+            username: ''
+            password: ''
+
     - name: Pull the latest release of receptor
-      containers.podman.podman_image:
-        name: "{{ receptor_image_name }}"
-        tag: "{{ receptor_image_tag }}"
-        auth_file: "{{ lookup('ansible.builtin.file', receptor_image_authfile, errors='ignore') }}"
-        state: present
+      ansible.builtin.command:
+        cmd: "podman pull {{ receptor_image_with_digest }}"
+      changed_when: false
 
     - name: Run receptor image
       containers.podman.podman_container:
         name: "{{ receptor_service_name }}"
-        image: "{{ receptor_image_name }}:{{ receptor_image_tag }}"
+        image: "{{ receptor_image_with_digest }}"
         recreate: true
         state: present
         network: host

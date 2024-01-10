@@ -22,10 +22,22 @@
     receptor_uid_directory: "/run/user/{{ receptor_user_register.uid }}"
     receptor_image_with_digest: "{{ receptor_image_registry }}/{{ receptor_image_name }}@{{ receptor_image_sha }}"
   block:
+    - name: Set facts
+      ansible.builtin.set_fact:
+        user_home_directory: "/home/{{ receptor_user }}"
+
     - name: Create containers.conf file
       ansible.builtin.template:
         src: templates/containers.conf.j2
         dest: ~/.config/containers/containers.conf
+        mode: '0750'
+        owner: "{{ receptor_user }}"
+        group: "{{ receptor_group }}"
+
+    - name: Copy podman alias script
+      ansible.builtin.template:
+        src: templates/podman_alias.sh.j2
+        dest: "{{ user_home_directory }}/.ansible/podman"
         mode: '0750'
         owner: "{{ receptor_user }}"
         group: "{{ receptor_group }}"
@@ -90,6 +102,7 @@
           - "{{ receptor_ca_certfile }}:{{ receptor_ca_certfile }}:ro"
           - "{{ receptor_socket_dir }}:{{ receptor_socket_dir }}:z"
           - "{{ receptor_uid_directory }}/podman/podman.sock:/run/podman/podman.sock:z"
+          - "{{ user_home_directory }}/.ansible/podman:/usr/bin/podman:ro,z"
           - "{{ awx_isolation_base_path }}:{{ awx_isolation_base_path }}"
         privileged: true
         security_opt:

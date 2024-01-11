@@ -5,6 +5,8 @@ version: 2.0.2
 readme: README.md
 authors:
   - Ansible
+dependencies:
+  "containers.podman": ">=1.10.2"
 description: Receptor installer
 license_file: LICENSE
 tags:

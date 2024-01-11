@@ -69,12 +69,10 @@
             username: ''
             password: ''
 
-    # Using command module instead of podman_image module here,
-    # as the podman_image module does not yet support pulling by digest
-    - name: Pull the latest release of receptor
-      ansible.builtin.command:
-        cmd: "podman pull {{ receptor_image_with_digest }}"
-      changed_when: false
+    - name: Pull the latest release of receptor by digest
+      containers.podman.podman_image:
+        name: "{{ receptor_image_with_digest }}"
+        state: present
 
     - name: Run receptor image
       containers.podman.podman_container:

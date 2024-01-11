@@ -60,6 +60,7 @@
             group: "{{ receptor_group }}"
             mode: '0644'
 
+        # Username and password are required values, but authentication is managed through the authfile
         - name: Login to registry with authfile
           when: receptor_image_authfile_path is defined
           containers.podman.podman_login:
@@ -68,6 +69,8 @@
             username: ''
             password: ''
 
+    # Using command module instead of podman_image module here,
+    # as the podman_image module does not yet support pulling by digest
     - name: Pull the latest release of receptor
       ansible.builtin.command:
         cmd: "podman pull {{ receptor_image_with_digest }}"
